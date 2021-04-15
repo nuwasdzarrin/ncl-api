@@ -18,7 +18,7 @@ class EventController extends Controller
      */
     public function index(Request $request)
     {
-        $data = DB::table('events')->where('company_id', $request->company_id)->get();
+        $data = DB::table('events')->where('company_id', $request->company_id)->orderBy('id','DESC')->get();
         return response()->json(['data' => $data]);
     }
 
@@ -60,6 +60,7 @@ class EventController extends Controller
             'description' => $request->description,
             'link' => $request->link
         ]);
+        
         if($request->filled('image')) {
             $imgName='';
             $baseString = explode(';base64,', $request->image);
@@ -70,12 +71,33 @@ class EventController extends Controller
             $ext = $ext[1];
             $imgName = 'event_'.uniqid().'.'.$ext;
             if($ext=='png'){
-                imagepng($image,'storage/'.$imgName,8);
+                imagepng($image,public_path().'/files/'.$imgName,8);
             } else {
-                imagejpeg($image,'storage/'.$imgName,20);
+                imagejpeg($image,public_path().'/files/'.$imgName,20);
             }
             DB::table('events')->where('id', $eventGetId)->update(['image' => $imgName]);
         }
+        
+        $tokenUser = DB::table('users')->where('company_id', $request->company_id)
+        ->where('token','!=',"")
+        ->pluck('token')->toArray();
+        if($tokenUser) {
+            $tokens=(Array) $tokenUser;
+
+            $result = fcm()->to($tokenUser)
+            ->timeToLive(0)
+            ->priority('normal')
+            ->notification([
+                'title' => 'Hai, ada event baru nih buat kamu!',
+                'body' => $request->title,
+            ])
+            ->data([
+                'title' => 'Hai, ada event baru nih buat kamu!',
+                'body' => $request->title,
+            ])
+            ->send();
+        }
+        
         DB::commit();
         return response()->json(['data' => $eventGetId, 'message' => 'Data berhasil disimpan!'], $this->successStatus);
 
@@ -146,9 +168,9 @@ class EventController extends Controller
             $ext = $ext[1];
             $imgName = 'event_'.uniqid().'.'.$ext;
             if($ext=='png'){
-                imagepng($image,'storage/'.$imgName,8);
+                imagepng($image,public_path().'/files/'.$imgName,8);
             } else {
-                imagejpeg($image,'storage/'.$imgName,20);
+                imagejpeg($image,public_path().'/files/'.$imgName,20);
             }
         }
 

@@ -16,12 +16,37 @@ class LeaderboardController extends Controller
      */
     public function index(Request $request)
     {
-        $data = DB::table('leaderboards')
-        ->where('organization_id', $request->organization_id)
-        ->orderBy('level', 'DESC')
-        ->get();
+        $data = DB::table('leaderboards as s')
+        ->leftJoin('users as u','u.id','s.user_id')
+        ->where('u.organization_id', $request->organization_id)
+        ->orderBy('s.point', 'DESC')
+        ->select([
+            'u.username',
+            'u.name',
+            's.point',
+            's.level'
+        ])->get();
         return response()->json(['data' => $data]);
     }
+    
+    // public function user_course(Request $request)
+    // {
+    //     $dt = DB::table('user_scores as us');
+    //     $dt = $dt->leftJoin('courses as c','c.id','us.course_id');
+    //     $dt = $dt->where('us.user_id', auth()->id());
+    //     $dt = $dt->orderBy('c.id','DESC');
+    //     $dt = $dt->selectRaw('
+    //         us.id,
+    //         us.score,
+    //         us.status,
+    //         c.id,
+    //         c.image,
+    //         c.title,
+    //         c.description
+    //     ')->get();
+    //     return response()->json(['data' => $dt]);
+    // }
+
 
     /**
      * Show the form for creating a new resource.

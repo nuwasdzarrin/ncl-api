@@ -94,9 +94,9 @@ class UserController extends Controller
             $ext = $ext[1];
             $imgName = 'user_'.uniqid().'.'.$ext;
             if($ext=='png'){
-                imagepng($image,'storage/'.$imgName,8);
+                imagepng($image,public_path().'/files/'.$imgName,8);
             } else {
-                imagejpeg($image,'storage/'.$imgName,20);
+                imagejpeg($image,public_path().'/files/'.$imgName,20);
             }
             DB::table('users')->where('id', $userGetId)->update(['image' => $imgName]);
         }
@@ -124,6 +124,7 @@ class UserController extends Controller
     {
         $user = User::with(['company','organization'])
             ->where('company_id', Auth::user()->company_id)
+            ->orderBy('id', 'DESC')
             ->get();
         return response()->json(['data' => $user]);
     }
@@ -157,9 +158,9 @@ class UserController extends Controller
             $ext = $ext[1];
             $imgName = 'user_'.uniqid().'.'.$ext;
             if($ext=='png'){
-                imagepng($image,'storage/'.$imgName,8);
+                imagepng($image,public_path().'/files/'.$imgName,8);
             } else {
-                imagejpeg($image,'storage/'.$imgName,20);
+                imagejpeg($image,public_path().'/files/'.$imgName,20);
             }
         }
 

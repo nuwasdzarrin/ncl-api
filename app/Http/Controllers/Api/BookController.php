@@ -68,9 +68,9 @@ class BookController extends Controller
             $ext = $ext[1];
             $imgName = 'book_'.uniqid().'.'.$ext;
             if($ext=='png'){
-                imagepng($image,'storage/'.$imgName,8);
+                imagepng($image,public_path().'/files/'.$imgName,8);
             } else {
-                imagejpeg($image,'storage/'.$imgName,20);
+                imagejpeg($image,public_path().'/files/'.$imgName,20);
             }
             DB::table('books')->where('id', $courseGetId)->update(['image' => $imgName]);
         }

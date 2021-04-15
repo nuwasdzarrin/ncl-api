@@ -6,7 +6,9 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\User;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
 use DB;
+use Validator;
 use Carbon\Carbon;
 
 class MobileController extends Controller
@@ -15,6 +17,7 @@ class MobileController extends Controller
     public $successStatus = 200;
 
     public function login_mobile(Request $request){
+        // return response()->json($request,500);
         if(Auth::attempt([
                 'username' => $request->username, 
                 'password' => $request->password
@@ -29,7 +32,7 @@ class MobileController extends Controller
             $success['accessToken'] = $user->createToken('nApp')->accessToken;
 
             DB::table('users')->where('id', $user->id)->update([
-                'token' => $request->token ?? null
+                'token' => $request->token
             ]);
 
             return response()->json($success, $this->successStatus);
@@ -45,10 +48,7 @@ class MobileController extends Controller
         $dt = $dt->leftJoin('user_scores as us','us.course_id','c.id');
         $dt = $dt->where('c.organization_id', auth()->user()->organization_id);
         $dt = $dt->where('c.type', $request->type);
-        if($request->is_mobile==1) {
-            $dt = $dt->leftJoin('user_scores as s','s.course_id','c.id');
-            $dt = $dt->whereRaw("IF(s.id is not null,s.user_id = ".auth()->user()->id." and s.is_done = 1,1=1)");
-        }
+        $dt = $dt->where('us.id','!=', null);
         $dt = $dt->selectRaw('
             c.id,
             c.title,
@@ -56,8 +56,44 @@ class MobileController extends Controller
             c.image,
             if(us.id is not null, 1, 0) as is_going
         ')->get();
+        $data=array();
         return response()->json(['data' => $dt]);
     }
+    public function course_list_dashboard(Request $request)
+    {
+        $user = auth()->user();
+        $dt = DB::table('courses as c');
+        $dt = $dt->leftJoin('user_scores as us','us.course_id','c.id');
+        $dt = $dt->where('c.organization_id', auth()->user()->organization_id);
+        $dt = $dt->where('c.type', $request->type);
+        // $dt = $dt->whereRaw("(us.id is null or IF(us.user_id = $user->id,c.id))")
+        // $dt = $dt->where(function($q){
+        //     $q->where('us.id', null);
+            
+        //     $q->orWhere('us.user_id', '!=', auth()->user()->id);
+        // });
+        $dt = $dt->groupBy('c.id','c.title','c.description','c.image');
+        $dt = $dt->orderBy('c.id','DESC');
+        $dt = $dt->selectRaw('
+            c.id,
+            c.title,
+            c.description,
+            c.image,
+            count(us.id) as jml,
+            group_concat(us.user_id) as user_list
+        ')->get();
+        
+        $data = array();
+        $excludecourseid=array();
+        foreach($dt as $value){
+            $exclude = explode(",",$value->user_list);
+            if(in_array($user->id,$exclude)) continue;
+            array_push($data,$value);
+        }
+        
+        return response()->json(['data' => $data]);
+    }
+
     
     public function accept_course(Request $request)
     {
@@ -89,6 +125,16 @@ class MobileController extends Controller
         ],[
             'score' => $request->score,
             'status' => 2
+        ]);
+        DB::table('leaderboards')->updateOrInsert([
+            'user_id' => $user->id,
+        ],[
+            'point' => DB::raw('point+'.$request->score)
+        ]);
+        $cek = DB::table('leaderboards')->where('user_id', $user->id)->first();
+        $score = ceil($cek->point/100);
+        DB::table('leaderboards')->where('user_id', $user->id)->update([
+            'level' => $score
         ]);
         DB::commit();
         return response()->json(['message' => 'OK']);
@@ -162,6 +208,7 @@ class MobileController extends Controller
         $dt = DB::table('user_scores as us');
         $dt = $dt->leftJoin('courses as c','c.id','us.course_id');
         $dt = $dt->where('us.user_id', auth()->id());
+        $dt = $dt->orderBy('c.id','DESC');
         $dt = $dt->selectRaw('
             us.id,
             us.score,
@@ -189,5 +236,38 @@ class MobileController extends Controller
             'message' => 'success',
             'data' => $user
         ], $this->successStatus);
+    }
+    
+    public function change_password(Request $request) {
+        $input = $request->all();
+        $userid = Auth::guard('api')->user()->id;
+        $rules = array(
+            'old_password' => 'required',
+            'new_password' => 'required',
+            'confirm_password' => 'required|same:new_password',
+        );
+        $validator = Validator::make($input, $rules);
+        if ($validator->fails()) {
+            $arr = array("status" => 400, "message" => $validator->errors()->first(), "data" => array());
+        } else {
+            try {
+                if ((Hash::check(request('old_password'), Auth::user()->password)) == false) {
+                    $arr = array("status" => 400, "message" => "Check your old password.", "data" => array());
+                } else if ((Hash::check(request('new_password'), Auth::user()->password)) == true) {
+                    $arr = array("status" => 400, "message" => "Please enter a password which is not similar then current password.", "data" => array());
+                } else {
+                    User::where('id', $userid)->update(['password' => Hash::make($input['new_password'])]);
+                    $arr = array("status" => 200, "message" => "Password updated successfully.", "data" => array());
+                }
+            } catch (\Exception $ex) {
+                if (isset($ex->errorInfo[2])) {
+                    $msg = $ex->errorInfo[2];
+                } else {
+                    $msg = $ex->getMessage();
+                }
+                $arr = array("status" => 400, "message" => $msg, "data" => array());
+            }
+        }
+        return \Response::json($arr);
     }
 }

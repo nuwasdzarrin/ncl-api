@@ -22,7 +22,7 @@ class CourseController extends Controller
      */
     public function index(Request $request)
     {
-        $data = DB::table('courses')->where('organization_id', $request->organization_id)->get();
+        $data = DB::table('courses')->where('organization_id', $request->organization_id)->orderBy('id', 'DESC')->get();
         return response()->json(['data' => $data]);
     }
 
@@ -92,14 +92,24 @@ class CourseController extends Controller
             'type' => $request->type
         ]);
         
-        $recipients = array();
-        $tokenUser = DB::table('users')->where('organization_id', $request->organization_id)->first();
-        if($tokenUser->token) {
-            array_push($recipients, $tokenUser->token);
-            fcm()->to($recipients)->priority('high')->timeToLive(0)->notification([
-                'title' => 'Maesa Grow',
-                'body' => 'Ada course baru - '.$courseGetId->title,
-            ])->send();
+        $tokenUser = DB::table('users')->where('organization_id', $request->organization_id)
+        ->where('token','!=',"")
+        ->pluck('token')->toArray();
+        if($tokenUser) {
+            $tokens=(Array) $tokenUser;
+
+            $result = fcm()->to($tokenUser)
+            ->timeToLive(0)
+            ->priority('normal')
+            ->notification([
+                'title' => 'Hai, ada course baru nih buat kamu!',
+                'body' => $request->title,
+            ])
+            ->data([
+                'title' => 'Hai, ada course baru nih buat kamu!',
+                'body' => $request->title,
+            ])
+            ->send();
         }
         
         if($request->filled('image')) {
@@ -112,9 +122,9 @@ class CourseController extends Controller
             $ext = $ext[1];
             $imgName = 'course_'.uniqid().'.'.$ext;
             if($ext=='png'){
-                imagepng($image,'storage/'.$imgName,8);
+                imagepng($image,public_path().'/files/'.$imgName,8);
             } else {
-                imagejpeg($image,'storage/'.$imgName,20);
+                imagejpeg($image,public_path().'/files/'.$imgName,20);
             }
             DB::table('courses')->where('id', $courseGetId)->update(['image' => $imgName]);
         }
@@ -122,7 +132,7 @@ class CourseController extends Controller
         return response()->json([
             'data' => $courseGetId, 
             'message' => 'Data berhasil disimpan!',
-            'token' => $tokenUser->token
+            'token' => $tokenUser
         ], $this->successStatus);
     }
 
@@ -180,9 +190,9 @@ class CourseController extends Controller
             $ext = $ext[1];
             $imgName = 'course_'.uniqid().'.'.$ext;
             if($ext=='png'){
-                imagepng($image,'storage/'.$imgName,8);
+                imagepng($image,public_path().'/files/'.$imgName,8);
             } else {
-                imagejpeg($image,'storage/'.$imgName,20);
+                imagejpeg($image,public_path().'/files/'.$imgName,20);
             }
         }
 

@@ -58,12 +58,14 @@ Route::group([
             Route::get('detail_user', 'MobileController@details');
             Route::post('logout', 'MobileController@logout');
             Route::get('course_list','MobileController@course_list');
+            Route::get('course_list_dashboard','MobileController@course_list_dashboard');
             Route::get('leaderboards','MobileController@leaderboards');
             Route::get('calendar','MobileController@get_calendar');
             Route::post('calendar','MobileController@post_calendar');
             Route::get('course_detail/{id}','MobileController@course_detail');
             Route::post('accept_course','MobileController@accept_course');
-            Route::post('submit_question','MobileController@submit_question');    
+            Route::post('submit_question','MobileController@submit_question'); 
+            Route::post('change_password', 'MobileController@change_password');
         });
     });
     
